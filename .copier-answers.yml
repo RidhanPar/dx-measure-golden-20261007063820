@@ -1,0 +1,12 @@
+# Changes here will be overwritten by Copier. Do not edit manually.
+_commit: v1.1.1
+_src_path: gh:RidhanPar/devex-golden-path
+coverage_threshold: 80
+description: A FastAPI service generated from the DevEx golden path.
+github_org: RidhanPar
+golden_path_ref: v1
+owner_team: platform
+package_name: dx_measure_golden_20261007063820
+project_name: dx-measure-golden-20261007063820
+project_slug: dx-measure-golden-20261007063820
+python_version: '3.13'

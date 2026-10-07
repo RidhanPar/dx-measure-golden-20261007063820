@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1
+# Multi-stage build: dependencies are installed in a builder stage so the
+# runtime image contains no compilers, caches or build tools.
+
+ARG PYTHON_VERSION=3.13
+
+FROM python:${PYTHON_VERSION}-slim AS builder
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /build
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+# Copy only the dependency manifest first so this layer is cached until it changes.
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY pyproject.toml README.md ./
+COPY src ./src
+# The service never installs packages at runtime, so the venv ships without pip.
+RUN pip install --no-deps . \
+ && pip uninstall --yes pip
+
+FROM python:${PYTHON_VERSION}-slim AS runtime
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/opt/venv/bin:$PATH"
+# The base image's own pip (and the copy ensurepip keeps) vendor libraries such as urllib3 and
+# msgpack that the image scanner rightly flags. Nothing at runtime needs pip, so remove it.
+RUN /usr/local/bin/python -m pip uninstall --yes pip \
+ && rm -rf /usr/local/lib/python*/ensurepip \
+ && useradd --create-home --uid 10001 app
+COPY --from=builder /opt/venv /opt/venv
+USER app
+WORKDIR /home/app
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status == 200 else 1)"]
+CMD ["uvicorn", "dx_measure_golden_20261007063820.main:app", "--host", "0.0.0.0", "--port", "8000"]
